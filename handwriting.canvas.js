@@ -32,12 +32,16 @@
         this.redo_trace = [];
         this.allowUndo = false;
         this.allowRedo = false;
+        this.deactivated = false;
+        this.hasChanged = false;
+        this.getTrace = () => {this.hasChanged = false; return this.trace;};
         cvs.addEventListener("mousedown", this.mouseDown.bind(this));
         cvs.addEventListener("mousemove", this.mouseMove.bind(this));
         cvs.addEventListener("mouseup", this.mouseUp.bind(this));
         cvs.addEventListener("touchstart", this.touchStart.bind(this));
         cvs.addEventListener("touchmove", this.touchMove.bind(this));
         cvs.addEventListener("touchend", this.touchEnd.bind(this));
+        cvs.addEventListener("mouseleave", this.mouseLeave.bind(this));
         this.callback = undefined;
         this.recognize = handwriting.recognize;
     };
@@ -69,7 +73,7 @@
 
 
     handwriting.Canvas.prototype.mouseDown = function(e) {
-        // new stroke
+        if(this.deactivated) return;
         this.cxt.lineWidth = this.lineWidth;
         this.handwritingX = [];
         this.handwritingY = [];
@@ -85,6 +89,7 @@
 
 
     handwriting.Canvas.prototype.mouseMove = function(e) {
+        if(this.deactivated) return;
         if (this.drawing) {
             var rect = this.canvas.getBoundingClientRect();
             var x = e.clientX - rect.left;
@@ -96,18 +101,25 @@
         }
     };
 
-    handwriting.Canvas.prototype.mouseUp = function() {
-        var w = [];
-        w.push(this.handwritingX);
-        w.push(this.handwritingY);
-        w.push([]);
-        this.trace.push(w);
-        this.drawing = false;
-        if (this.allowUndo) this.step.push(this.canvas.toDataURL());
+    handwriting.Canvas.prototype.mouseUp = function() {   
+        if(this.deactivated) return;
+        if(this.drawing){
+            var w = [];
+            w.push(this.handwritingX);
+            w.push(this.handwritingY);
+            w.push([]);
+            
+            this.drawing = false;
+            if(w[0].length > 1){
+                this.trace.push(w);
+                this.hasChanged = true;
+                if (this.allowUndo) this.step.push(this.canvas.toDataURL());
+            }
+        }
     };
 
-
     handwriting.Canvas.prototype.touchStart = function(e) {
+        if(this.deactivated) return;
         e.preventDefault();
         this.cxt.lineWidth = this.lineWidth;
         this.handwritingX = [];
@@ -126,6 +138,7 @@
     };
 
     handwriting.Canvas.prototype.touchMove = function(e) {
+        if(this.deactivated) return;
         e.preventDefault();
         var touch = e.targetTouches[0];
         var de = document.documentElement;
@@ -141,13 +154,24 @@
     };
 
     handwriting.Canvas.prototype.touchEnd = function(e) {
+        if(this.deactivated) return;
         var w = [];
         w.push(this.handwritingX);
         w.push(this.handwritingY);
         w.push([]);
-        this.trace.push(w);
+        if(w[0].length > 1){
+            this.trace.push(w);
+            this.hasChanged = true;
+        }
         if (this.allowUndo) this.step.push(this.canvas.toDataURL());
     };
+
+    handwriting.Canvas.prototype.mouseLeave = function(e) {
+        if(this.deactivated) return;
+        if (this.drawing) {
+            this.mouseUp();
+        }
+    }
 
     handwriting.Canvas.prototype.undo = function() {
         if (!this.allowUndo || this.step.length <= 0) return;
@@ -182,7 +206,16 @@
         this.redo_step = [];
         this.redo_trace = [];
         this.trace = [];
+        this.hasChanged = true;
     };
+
+    handwriting.Canvas.prototype.deactivate = function() {
+        this.deactivated = true;
+    }
+
+    handwriting.Canvas.prototype.activate = function() {
+        this.deactivated = false;
+    }
 
     function loadFromUrl(url, cvs) {
         var imageObj = new Image();
@@ -244,5 +277,10 @@
         xhr.setRequestHeader("content-type", "application/json");
         xhr.send(data);
     };
+
+    handwriting.Canvas.prototype.injectTrace = function(trace, changed = true){
+        this.trace = trace;
+        this.hasChanged = changed;
+    }
 
 })(window, document);
