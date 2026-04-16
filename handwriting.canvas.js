@@ -211,6 +211,7 @@
 
     handwriting.Canvas.prototype.deactivate = function() {
         this.deactivated = true;
+        this.drawing = false;
     }
 
     handwriting.Canvas.prototype.activate = function() {
